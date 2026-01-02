@@ -1,144 +1,104 @@
 import React, { useState, useEffect } from 'react';
+import { storage } from '../utils/storage';
 
-const CounterScreen = () => {
-  const [seconds, setSeconds] = useState(0);
+const CounterScreen = ({ navigateToHome }) => {
+  const [time, setTime] = useState(0);
   const [kicks, setKicks] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
-
-  const formatTime = (totalSeconds) => {
-    const mins = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
+  const [isActive, setIsActive] = useState(true);
+  const [startTime, setStartTime] = useState(Date.now());
 
   useEffect(() => {
-    if (isRunning && kicks < 10) {
-      const id = setInterval(() => {
-        setSeconds(seconds => seconds + 1);
-      }, 1000);
-      return () => clearInterval(id);
-    }
-  }, [isRunning, seconds, kicks]);
+    const interval = setInterval(() => {
+      if (isActive) setTime(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isActive, startTime]);
 
-  const handleSave = () => {
-    const newSession = {
-      id: Date.now(),
+  const saveSession = async () => {
+    const minutes = Math.floor(time / 60);
+    await storage.saveSession({
+      id: Date.now().toString(),
       date: new Date().toISOString(),
-      duration: formatTime(seconds)
-    };
-    const existing = JSON.parse(localStorage.getItem('sessions') || '[]');
-    const updated = [newSession, ...existing];
-    localStorage.setItem('sessions', JSON.stringify(updated));
-    alert(`✅ Saved! ${newSession.duration} for 10 kicks`);
-    setSeconds(0);
-    setKicks(0);
-    setIsRunning(false);
+      timeTaken: minutes,
+      kicks: 10
+    });
+    navigateToHome();
   };
 
-  const handleBack = () => {
-    setSeconds(0);
-    setKicks(0);
-    setIsRunning(false);
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
-      padding: 20
+      background: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+      padding: 20,
+      display: 'flex', flexDirection: 'column', justifyContent: 'center'
     }}>
       <div style={{
-        maxWidth: '400px',
-        margin: '0 auto',
-        background: 'white',
-        borderRadius: '25px',
-        padding: '40px',
-        boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
-        textAlign: 'center'
+        maxWidth: 400, margin: '0 auto',
+        background: 'white', borderRadius: 25,
+        boxShadow: '0 20px 40px rgba(0,0,0,0.1)', padding: 40, textAlign: 'center'
       }}>
-        <h1 style={{ color: '#333', marginBottom: 10 }}>👶 Fetal Kicks</h1>
-        <p style={{ color: '#666', marginBottom: 30 }}>Count 10 movements</p>
+        <h1 style={{ fontSize: 36, color: '#333', marginBottom: 30 }}>Kick Counter</h1>
         
         <div style={{
-          fontSize: '64px',
-          fontWeight: 'bold',
-          color: '#ff6b6b',
-          marginBottom: 30,
-          fontFamily: 'monospace'
+          fontSize: 64, fontWeight: 'bold', color: '#4CAF50',
+          background: '#e8f5e8', borderRadius: 20,
+          padding: '20px 40px', margin: 30
         }}>
-          {formatTime(seconds)}
+          {kicks}/10 ⚽
         </div>
         
         <div style={{
-          background: '#f0f0f0',
-          borderRadius: '20px',
-          padding: '20px',
-          marginBottom: 30
+          fontSize: 48, color: '#FF9800',
+          marginBottom: 40
         }}>
-          <div style={{ fontSize: '36px', color: '#4CAF50' }}>
-            {kicks}/10 Kicks
-          </div>
+          {formatTime(time)}
         </div>
 
-        <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          {!isRunning ? (
-            <button onClick={() => setIsRunning(true)} style={{
+        <div style={{ display: 'flex', gap: 20, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button 
+            onClick={() => setKicks(Math.min(kicks + 1, 10))}
+            disabled={!isActive}
+            style={{
               background: '#4CAF50', color: 'white', border: 'none',
-              padding: '15px 30px', borderRadius: '25px', fontSize: '18px', fontWeight: 'bold'
-            }}>
-              ▶️ Start Timer
-            </button>
-          ) : (
-            <>
-              <button onClick={() => setIsRunning(false)} style={{
-                background: '#ff9800', color: 'white', border: 'none',
-                padding: '15px 20px', borderRadius: '25px', fontSize: '16px'
-              }}>
-                ⏸️ Pause
-              </button>
-              <button onClick={handleBack} style={{
-                background: '#f44336', color: 'white', border: 'none',
-                padding: '15px 20px', borderRadius: '25px', fontSize: '16px'
-              }}>
-                ⏹️ Reset
-              </button>
-            </>
-          )}
-        </div>
-
-        {kicks < 10 && (
-          <button onClick={() => setKicks(kicks + 1)} style={{
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            color: 'white', border: 'none', padding: '25px 50px',
-            borderRadius: '50px', fontSize: '24px', fontWeight: 'bold',
-            marginTop: '20px', boxShadow: '0 10px 30px rgba(102, 126, 234, 0.4)'
-          }}>
-            👶 +1 Kick Detected
+              padding: '15px 30px', borderRadius: 25, fontSize: 18,
+              fontWeight: 'bold', cursor: isActive ? 'pointer' : 'not-allowed',
+              minWidth: 120
+            }}
+          >
+            + Kick
           </button>
-        )}
-
-        {kicks === 10 && (
-          <div style={{ marginTop: '30px' }}>
-            <div style={{ background: '#4CAF50', color: 'white', padding: '15px 30px', 
-              borderRadius: '25px', marginBottom: '20px', fontSize: '18px' }}>
-              ✅ Great! 10 kicks completed!
-            </div>
-            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
-              <button onClick={handleSave} style={{
-                background: '#4CAF50', color: 'white', border: 'none',
-                padding: '15px 25px', borderRadius: '25px', fontSize: '16px', fontWeight: 'bold'
-              }}>
-                💾 Save Session
-              </button>
-              <button onClick={handleBack} style={{
-                background: '#f44336', color: 'white', border: 'none',
-                padding: '15px 25px', borderRadius: '25px', fontSize: '16px'
-              }}>
-                ← Back Without Saving
-              </button>
-            </div>
-          </div>
-        )}
+          
+          <button 
+            onClick={saveSession}
+            disabled={kicks < 10}
+            style={{
+              background: kicks >= 10 ? '#4CAF50' : '#ccc',
+              color: 'white', border: 'none',
+              padding: '15px 30px', borderRadius: 25, fontSize: 18,
+              fontWeight: 'bold', cursor: kicks >= 10 ? 'pointer' : 'not-allowed',
+              minWidth: 120
+            }}
+          >
+            ✅ Save
+          </button>
+          
+          <button 
+            onClick={navigateToHome}
+            style={{
+              background: 'transparent', color: '#666',
+              border: '2px solid #ddd', padding: '13px 28px',
+              borderRadius: 25, fontSize: 18, cursor: 'pointer'
+            }}
+          >
+            ← Back
+          </button>
+        </div>
       </div>
     </div>
   );
